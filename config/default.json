@@ -1,0 +1,12 @@
+{
+	"Crawler":{
+		"dbHost": "localhost",
+		"dbPort": 27017,
+		"dbName": "ss12search",
+		"dbUsername":"",
+		"dbPassword":"",
+		"elasticSearchHost":"localhost",
+		"elasticSearchPort":"9200"
+	}	
+}
+	

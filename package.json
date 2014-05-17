@@ -1,0 +1,35 @@
+{
+  "name": "ss12-search",
+  "version": "0.0.1",
+  "description": "ss12-search",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yunjiali/ss12-search"
+  },
+  "keywords": [
+    "search"
+  ],
+  "author": "Yunjia Li",
+  "license": "MIT",
+  "readmeFilename": "README.md",
+  "dependencies": {
+    "underscore": "latest",
+    "async": "latest",
+    "request":"latest",
+    "mongodb":"latest",
+    "optimist":"latest",
+    "monk":"latest",
+    "xml2js":"latest",
+    "string":"latest",
+    "config":"latest",
+    "jsonfile":"latest",
+    "wget":"latest",
+    "moment":"latest",
+    "elasticsearchclient":"latest",
+    "csv":"latest"
+  }
+}
