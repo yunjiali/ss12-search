@@ -8,6 +8,14 @@ var S=require('string');
 var CONFIG=require('config').Crawler;
 var csv = require('csv');
 var monk = require('monk');
+var argv=require('optimist').argv;
+
+if(!argv.offset){
+	console.log("--offset Please provide the offset. 1, 2, 3, 5 indicate 100thousands, etc.")
+}
+
+var LIMIT = 100000
+
 
 
 var mongourl = "";
@@ -37,98 +45,47 @@ console.log("connect to elasticsearchclient at "+CONFIG.elasticSearchHost+":"+CO
 //var sentences =[];
 //var tags = [];
 //var links = [];
-async.waterfall([
-	function(callback){ //read sentences.csv
-		console.log("Start reading sentences...");
-		//callback(null);
-		//return;
-		var collection = db.get("sentences");
-		csv().from.path('sentences.csv', {delimiter:'	'}).on('record', function(row, index) {
-		  var entry = {};
-		  entry.id = row[0];
-		  entry.lang = row[1];
-		  entry.text = row[2];
-		  entry.sameases = [];
-		  entry.tag = null;
-		  //sentences.push(entry);
-		  collection.insert(entry);
-		  //console.log('#'+index+' '+JSON.stringify(row));
-		}).on('end', function(count) {
-		  console.log(count+" sentences added.");
-		  callback(null);
-		});
-	},
-	function(callback){ //read links.csv
-		var id;
-		var sameases = [];
-		console.log("Start reading links...");
-		var count = 0
-		
-		csv().from.path('links.csv', {delimiter:'	'}).on('record', function(row, index) {
-		  if(!id || id !== row[0]){
-		  	//write current sameases to sentences objects
-		  	var sentenceId = id;
-		  	var sameasesCopy = _.clone(sameases);
-		  	var collection = db.get("sentences");
-		  	collection.findAndModify({id:sentenceId},{$set:{sameases:sameasesCopy}});
-		  	id = row[0];
-		  	sameases = [];
-		  }
-		  sameases.push(row[1]);
-		  count++;
-		  if(count%10000 === 0)
-		  	console.log(count+" links processed.");
-		  //console.log('#'+index+' '+JSON.stringify(row));
-		}).on('end', function(count) {
-		  console.log(count+" links added.");
-		  callback(null);
-		});
-	},
-	function(callback){ //read tags.csv
-		console.log("Start reading tags...");
-		var count=0;
-		csv().from.path('tags.csv', {delimiter:'	'}).on('record', function(row, index) {
-		  var id = row[0];
-		  var tag = row[1];
-		  collection.findAndModify({id:id},{$set:{tag:tag}});
-		  count++;
-		  if(count%10000 === 0)
-		  	console.log(count+" tags processed.")
-		  //console.log('#'+index+' '+JSON.stringify(row));
-		}).on('end', function(count) {
-		  console.log(count+" tags added.");
-		  callback(null);
-		});
+
+var commands = [];
+
+db.get("sentences").find({},{skip:parseInt(argv.offset*100000),limit:LIMIT},function(err, sentences){
+	var commandArr = []
+	for(var i=0;i<sentences.length;i++){
+		commandArr.push({ "index" : { "_index" :'ss12search', "_type" : "sentence","_id":(parseInt(argv.offset*100000)+i+1)+""}});
+		delete sentences[i]._id;
+		commandArr.push(sentences[i]);
+		if(i!==0 && i%10000 === 0){
+			commands.push(commandArr);
+			commandArr = [];
+		}
 	}
 
-],function(err, result){
-	var commands = [];
+	commands.push(commandArr);
 
-	db.get("sentences").find({},function(err, sentences){
-		for(var i=0;i<sentences.length;i++){
-			commands.push({ "index" : { "_index" :'ss12search', "_type" : "sentence","_id":(i+1)+""}});
-			delete sentences[i]._id;
-			commands.push(sentences[i]);
-		}
-		
-		console.log("Start to create index...");
-		console.log(commands.length+" commands...");
-		elasticSearchClient.bulk(commands,{})
-			.on('data', function(data) {
-				//console.log(data)
-			})
-            .on('done', function(done){
-            	console.log("Finished.");
-            	process.exit(0);
-            })
-            .on('error', function(error){
-            	console.log("Error:"+error);
-            	process.exit(1);
-            	return;
-            })
-            .exec();
+	console.log("Start to create index...");
+	console.log(commands.length+" commands...");
+	async.eachSeries(commands,function(commandsArr, commandsCallback){
+		elasticSearchClient.bulk(commandsArr,{})
+		.on('data', function(data) {
+			//console.log(data)
+		})
+        .on('done', function(done){
+        	console.log("Finished indexing one commandArr.");
+        	commandsCallback(null);
+        })
+        .on('error', function(error){
+        	console.log("Error:"+error);
+        	process.exit(1);
+        	return;
+        })
+        .exec();
+	},function(commandsErr, commandsResults){
+		console.log("Finished.");
 	});
+	
 });
+
+
 
 
 
